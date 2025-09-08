@@ -7,6 +7,7 @@ import { Search, MapPin, Building, Users, Briefcase, ChevronDown } from "lucide-
 import ChatWidget from "@/components/chat-widget"
 import AuthModal from "@/components/auth-modal"
 import UserMenu from "@/components/user-menu"
+import Link from "next/link"
 
 export default function Home() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -61,9 +62,9 @@ export default function Home() {
                 <a href="#" className="text-gray-600 hover:text-gray-900">
                   Buscar empleos
                 </a>
-                <a href="#" className="text-gray-600 hover:text-gray-900">
+                <Link href="/empresas" className="text-gray-600 hover:text-gray-900">
                   Empresas y candidatos
-                </a>
+                </Link>
               </nav>
             )}
           </div>
