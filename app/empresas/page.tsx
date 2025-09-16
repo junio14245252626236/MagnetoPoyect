@@ -2,17 +2,28 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Star, Users, MessageSquare, Eye, ArrowLeft, Building, Mail, Lock } from "lucide-react"
 import Link from "next/link"
+import { useSession, signIn, signOut } from "next-auth/react"
 
 export default function EmpresasPage() {
+  const { data: session } = useSession()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loginData, setLoginData] = useState({ email: "", password: "" })
+
+  // When session changes, set logged state
+  useEffect(() => {
+    if (session) {
+      setIsLoggedIn(true)
+    } else {
+      setIsLoggedIn(false)
+    }
+  }, [session])
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,52 +36,30 @@ export default function EmpresasPage() {
     setLoginData({ email: "", password: "" })
   }
 
-  // Datos simulados de opiniones
-  const opiniones = [
-    {
-      id: 1,
-      usuario: "María González",
-      cargo: "Desarrolladora Frontend",
-      rating: 5,
-      comentario: "Excelente ambiente laboral, muy buenas oportunidades de crecimiento profesional.",
-      fecha: "2024-01-15",
-      empresa: "TechCorp",
-    },
-    {
-      id: 2,
-      usuario: "Carlos Rodríguez",
-      cargo: "Analista de Marketing",
-      rating: 4,
-      comentario: "Buenos beneficios y flexibilidad horaria. El equipo es muy colaborativo.",
-      fecha: "2024-01-10",
-      empresa: "TechCorp",
-    },
-    {
-      id: 3,
-      usuario: "Ana Martínez",
-      cargo: "Diseñadora UX/UI",
-      rating: 5,
-      comentario: "La empresa realmente se preocupa por el bienestar de sus empleados. Muy recomendada.",
-      fecha: "2024-01-08",
-      empresa: "TechCorp",
-    },
-    {
-      id: 4,
-      usuario: "Luis Hernández",
-      cargo: "Ingeniero Backend",
-      rating: 4,
-      comentario: "Proyectos interesantes y tecnologías modernas. Buen balance vida-trabajo.",
-      fecha: "2024-01-05",
-      empresa: "TechCorp",
-    },
-  ]
+  // Opiniones dinámicas desde el backend
+  const [opiniones, setOpiniones] = useState<any[]>([]);
+  const companyName = "EAFIT" // usar nombre de la empresa del usuario logueado
+  useEffect(() => {
+    fetch(`/api/feedback?company=${encodeURIComponent(companyName)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setOpiniones(
+          (data.feedbacks || []).map((f: any) => ({
+            id: f.id,
+            comentario: f.text,
+            fecha: f.createdAt,
+            rating: f.rating,
+          }))
+        )
+      })
+  }, [])
 
-  const estadisticas = {
-    totalOpiniones: 156,
-    ratingPromedio: 4.3,
-    candidatosActivos: 2847,
-    vistasEmpresa: 15420,
-  }
+  const [estadisticas, setEstadisticas] = useState({ totalOpiniones: 0, ratingPromedio: 0, candidatosActivos: 0, vistasEmpresa: 0 })
+  useEffect(() => {
+    fetch(`/api/stats?company=${encodeURIComponent(companyName)}`)
+      .then((res) => res.json())
+      .then((data) => setEstadisticas(data))
+  }, [])
 
   if (!isLoggedIn) {
     return (
@@ -252,42 +241,40 @@ export default function EmpresasPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {opiniones.map((opinion) => (
-                <div key={opinion.id} className="border-b border-gray-200 pb-6 last:border-b-0">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-semibold text-sm">
-                          {opinion.usuario
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </span>
+              {opiniones.length === 0 ? (
+                <p className="text-gray-500">No hay opiniones aún.</p>
+              ) : (
+                opiniones.map((opinion) => (
+                  <div key={opinion.id} className="border-b border-gray-200 pb-6 last:border-b-0">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold text-sm">AN</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Opinión Anónima</h4>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{opinion.usuario}</h4>
-                        <p className="text-sm text-gray-600">{opinion.cargo}</p>
+                      <div className="flex items-center space-x-2">
+                        {opinion.rating ? (
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${i < opinion.rating ? "text-yellow-400 fill-current" : "text-gray-300"}`}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                        <Badge variant="secondary" className="text-xs">
+                          {new Date(opinion.fecha).toLocaleDateString()}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < opinion.rating ? "text-yellow-400 fill-current" : "text-gray-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {new Date(opinion.fecha).toLocaleDateString()}
-                      </Badge>
-                    </div>
+                    <p className="text-gray-700 leading-relaxed">{opinion.comentario}</p>
                   </div>
-                  <p className="text-gray-700 leading-relaxed">{opinion.comentario}</p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             <div className="mt-6 text-center">

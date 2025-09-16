@@ -1,13 +1,14 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageCircle, X, Send, Minimize2 } from "lucide-react"
+import { Star } from "lucide-react"
 
-interface Message {
+// Definición del tipo Message
+type Message = {
   id: string
   text: string
   sender: "user" | "bot"
@@ -17,17 +18,25 @@ interface Message {
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      text: "¡Hola! Soy el asistente virtual de Magneto365. ¿En qué puedo ayudarte hoy?",
-      sender: "bot",
-      timestamp: new Date(),
-    },
-  ])
+  // Estado de mensajes y otros
+  const [messages, setMessages] = useState<Message[]>(
+    [
+      {
+        id: "1",
+        text: "¡Hola! Soy el asistente virtual de Magneto365. ¿En qué puedo ayudarte hoy?",
+        sender: "bot",
+        timestamp: new Date(),
+      },
+    ]
+  )
   const [inputValue, setInputValue] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [rating, setRating] = useState(0)
   const [isTyping, setIsTyping] = useState(false)
+  const [threadId, setThreadId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { data: session } = useSession()
+  const isAuthed = !!session
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -37,6 +46,7 @@ export default function ChatWidget() {
     scrollToBottom()
   }, [messages])
 
+  // Actualizar handleSendMessage para usar Message
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return
 
@@ -47,43 +57,36 @@ export default function ChatWidget() {
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInputValue("")
-    setIsTyping(true)
-
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: getBotResponse(inputValue),
-        sender: "bot",
-        timestamp: new Date(),
+    setMessages((prev) => [...prev, userMessage]);
+    const sendingText = inputValue;
+    setInputValue("");
+    setIsTyping(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sendingText, threadId, rating: rating > 0 ? rating : undefined }),
+      });
+      if (!res.ok) throw new Error("Error de chat");
+      const data = await res.json();
+      if (!threadId && data.threadId) setThreadId(data.threadId);
+      // Append bot message from server
+      const botMsgs = (data.messages || []).filter((m: any) => m.sender === "bot");
+      if (botMsgs.length > 0) {
+        setMessages((prev) => [
+          ...prev,
+          ...botMsgs.map((m: any) => ({ id: m.id, text: m.text, sender: "bot" as const, timestamp: new Date(m.createdAt) })),
+        ]);
       }
-      setMessages((prev) => [...prev, botResponse])
-      setIsTyping(false)
-    }, 1500)
-  }
-
-  const getBotResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase()
-
-    if (input.includes("empleo") || input.includes("trabajo") || input.includes("vacante")) {
-      return "Tenemos más de 100,000 empleos disponibles. ¿Te gustaría que te ayude a buscar por ciudad, cargo o empresa específica?"
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        { id: (Date.now() + 2).toString(), text: "Ocurrió un error, intenta nuevamente.", sender: "bot", timestamp: new Date() },
+      ]);
+    } finally {
+      setIsTyping(false);
+      setRating(0);
     }
-
-    if (input.includes("salario") || input.includes("sueldo")) {
-      return "Los salarios varían según el cargo y la experiencia. Te recomiendo crear tu perfil para ver ofertas personalizadas con rangos salariales."
-    }
-
-    if (input.includes("cuenta") || input.includes("registro")) {
-      return "Crear una cuenta en Magneto365 es completamente gratis. ¿Te gustaría que te guíe en el proceso de registro?"
-    }
-
-    if (input.includes("empresa") || input.includes("reclutador")) {
-      return "Si eres una empresa, puedes publicar ofertas de empleo GRATIS. También ofrecemos nuestro software de reclutamiento para pymes."
-    }
-
-    return "Gracias por tu mensaje. Nuestro equipo de soporte te contactará pronto. Mientras tanto, puedes explorar nuestras ofertas de empleo o crear tu perfil gratuito."
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -149,31 +152,31 @@ export default function ChatWidget() {
           <>
             {/* Messages */}
             <div className="h-64 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
-                      message.sender === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
+              {!isAuthed ? (
+                <div className="text-center text-sm text-gray-600">
+                  Debes iniciar sesión para usar el chat.
                 </div>
-              ))}
+              ) : (
+                messages.map((message) => (
+                  <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                        message.sender === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  </div>
+                ))
+              )}
 
-              {isTyping && (
+              {isTyping && isAuthed && (
                 <div className="flex justify-start">
                   <div className="bg-gray-100 text-gray-800 px-3 py-2 rounded-lg text-sm">
                     <div className="flex space-x-1">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                     </div>
                   </div>
                 </div>
@@ -184,23 +187,39 @@ export default function ChatWidget() {
 
             {/* Input */}
             <div className="p-4 border-t border-gray-200">
-              <div className="flex space-x-2">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Escribe tu mensaje..."
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  size="icon"
-                  className="bg-blue-600 hover:bg-blue-700"
-                  disabled={!inputValue.trim()}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+              {!isAuthed ? (
+                <div className="flex flex-col gap-2">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'login' } }));
+                  }}>
+                    Iniciar sesión para chatear
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-2">
+                  {/* Rating selector for feedback */}
+                  <div className="flex items-center space-x-1 mb-2">
+                    <span className="text-sm text-gray-600">Califica la empresa:</span>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <button key={i} type="button" onClick={() => setRating(i)}>
+                        <Star className={`h-5 w-5 ${i <= rating ? "text-yellow-400" : "text-gray-300"}`} />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Input
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Escribe tu mensaje..."
+                      className="flex-1"
+                    />
+                    <Button onClick={handleSendMessage} size="icon" className="bg-blue-600 hover:bg-blue-700" disabled={!inputValue.trim()}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

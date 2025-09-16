@@ -1,0 +1,74 @@
+// Prisma schema for NextAuth credentials-based auth (SQLite dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User { 
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  passwordHash  String
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  threads       ChatThread[]
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  company     String
+  location    String?
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  threads     ChatThread[]
+}
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  jobId     String?
+  job       Job?     @relation(fields: [jobId], references: [id])
+  title     String?
+  createdAt DateTime @default(now())
+
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  threadId   String
+  thread     ChatThread @relation(fields: [threadId], references: [id])
+  sender     String   // "user" | "bot"
+  text       String
+  createdAt  DateTime @default(now())
+  feedback   Boolean  @default(false)
+  rating     Int?
+}
+
+model PageContent {
+  id        String   @id @default(cuid())
+  source    String   // e.g., "magneto365"
+  url       String
+  title     String?
+  content   String   // plain text content
+  createdAt DateTime @default(now())
+}
+
+model CompanyStats {
+  id               String  @id @default(cuid())
+  company          String  @unique
+  candidatesActive Int
+  companyViews     Int
+  updatedAt        DateTime @updatedAt
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, MapPin, Building, Users, Briefcase, ChevronDown } from "lucide-react"
@@ -18,6 +18,16 @@ export default function Home() {
     setAuthMode(mode)
     setAuthModalOpen(true)
   }
+
+  // Permitir que otros componentes abran el modal usando un evento global
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      setAuthMode(e.detail?.mode === "register" ? "register" : "login")
+      setAuthModalOpen(true)
+    }
+    window.addEventListener("open-auth-modal", handler as EventListener)
+    return () => window.removeEventListener("open-auth-modal", handler as EventListener)
+  }, [])
 
   const handleLogin = () => {
     setIsLoggedIn(true)

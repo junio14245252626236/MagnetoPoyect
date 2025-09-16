@@ -28,3 +28,28 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+---
+
+## Added: Auth, Jobs & Chat (local dev)
+
+This project now includes:
+- Credentials auth with NextAuth + Prisma (SQLite in dev)
+- Jobs minimal API and chat with persisted threads/messages
+
+### Env
+- Copy `.env.example` to `.env` and set a strong `NEXTAUTH_SECRET`.
+
+### Prisma
+- Run `npx prisma migrate dev` to apply schema
+- Run `npx prisma studio` to browse data
+
+### Jobs API
+- GET `/api/jobs` -> list jobs
+- POST `/api/jobs` -> create `{ title, company, location?, description }`
+
+### Chat API
+- POST `/api/chat` -> `{ text, threadId?, jobId? }` returns `{ threadId, messages }` and stores conversation
+
+### Copilot API integration (placeholder)
+The function `generateBotReply` in `app/api/chat/route.ts` is a stub. Replace it with a call to your Copilot (or any LLM) API and keep persisting the bot output as shown now.

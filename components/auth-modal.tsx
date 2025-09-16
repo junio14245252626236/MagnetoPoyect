@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { X, Eye, EyeOff, Mail, User } from "lucide-react"
+import { signIn } from "next-auth/react"
 
 interface AuthModalProps {
   isOpen: boolean
@@ -22,6 +23,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
   const [password, setPassword] = useState("")
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!isOpen) return null
 
@@ -31,16 +34,36 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
     onClose()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (mode === "register") {
-      console.log("Creating account with:", { email, password, acceptTerms, acceptPrivacy })
-      onLogin?.()
-      onClose()
-    } else {
-      console.log("Logging in with:", { email, password })
-      onLogin?.()
-      onClose()
+    setError(null)
+    try {
+      setSubmitting(true)
+      if (mode === "register") {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || "Error al registrar")
+        }
+        // Auto sign-in after registration
+        const result = await signIn("credentials", { redirect: false, email, password })
+        if (result?.error) throw new Error("No se pudo iniciar sesión")
+        onLogin?.()
+        onClose()
+      } else {
+        const result = await signIn("credentials", { redirect: false, email, password })
+        if (result?.error) throw new Error("Credenciales inválidas")
+        onLogin?.()
+        onClose()
+      }
+    } catch (err: any) {
+      setError(err.message || "Algo salió mal")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -55,7 +78,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
             </div>
             <span className="font-bold text-xl text-gray-900">magneto</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -76,6 +99,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="w-full justify-start space-x-3 h-12 bg-transparent"
                     onClick={() => handleSocialLogin("LinkedIn")}
+                    disabled={submitting}
                   >
                     <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
                       <span className="text-white text-xs font-bold">in</span>
@@ -87,6 +111,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="w-full justify-start space-x-3 h-12 bg-transparent"
                     onClick={() => handleSocialLogin("Facebook")}
+                    disabled={submitting}
                   >
                     <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
                       <span className="text-white text-xs font-bold">f</span>
@@ -98,6 +123,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="w-full justify-start space-x-3 h-12 bg-transparent"
                     onClick={() => handleSocialLogin("Microsoft")}
+                    disabled={submitting}
                   >
                     <div className="w-5 h-5 bg-orange-500 rounded flex items-center justify-center">
                       <span className="text-white text-xs font-bold">M</span>
@@ -109,6 +135,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="w-full justify-center space-x-3 h-12 bg-transparent"
                     onClick={() => handleSocialLogin("Google")}
+                    disabled={submitting}
                   >
                     <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">G</span>
@@ -154,6 +181,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     </Button>
                   </div>
 
+                  {error && <p className="text-sm text-red-600">{error}</p>}
+
                   <div className="text-center">
                     <button type="button" className="text-sm text-blue-600 hover:underline">
                       Recuperar contraseña
@@ -163,10 +192,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                   <Button
                     type="submit"
                     className={`w-full h-12 ${email && password ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-300 text-gray-500"}`}
-                    disabled={!email || !password}
+                    disabled={!email || !password || submitting}
                   >
                     <User className="h-4 w-4 mr-2" />
-                    Continuar
+                    {submitting ? "Cargando..." : "Continuar"}
                   </Button>
                 </form>
               </div>
@@ -204,6 +233,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="h-12 flex-col space-y-1 bg-transparent"
                     onClick={() => handleSocialLogin("LinkedIn")}
+                    disabled={submitting}
                   >
                     <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
                       <span className="text-white text-xs font-bold">in</span>
@@ -215,6 +245,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="h-12 flex-col space-y-1 bg-transparent"
                     onClick={() => handleSocialLogin("Facebook")}
+                    disabled={submitting}
                   >
                     <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center">
                       <span className="text-white text-xs font-bold">f</span>
@@ -226,6 +257,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     variant="outline"
                     className="h-12 flex-col space-y-1 bg-transparent"
                     onClick={() => handleSocialLogin("Google")}
+                    disabled={submitting}
                   >
                     <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">G</span>
@@ -249,6 +281,25 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                       className="pl-10 h-12"
                       required
                     />
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Escribe tu contraseña..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10 h-12"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-2 h-8 w-8 p-0"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                   </div>
 
                   {/* Terms and Conditions */}
@@ -284,13 +335,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login", onLo
                     </div>
                   </div>
 
+                  {error && <p className="text-sm text-red-600">{error}</p>}
+
                   <Button
                     type="submit"
                     className={`w-full h-12 ${acceptTerms && acceptPrivacy && email ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-300 text-gray-500"}`}
-                    disabled={!acceptTerms || !acceptPrivacy || !email}
+                    disabled={!acceptTerms || !acceptPrivacy || !email || submitting}
                   >
                     <User className="h-4 w-4 mr-2" />
-                    Crear cuenta
+                    {submitting ? "Cargando..." : "Crear cuenta"}
                   </Button>
                 </form>
               </div>
