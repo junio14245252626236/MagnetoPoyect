@@ -186,7 +186,7 @@ export default function ChatWidget() {
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200 sticky bottom-0 bg-white">
               {!isAuthed ? (
                 <div className="flex flex-col gap-2">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => {

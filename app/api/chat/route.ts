@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { askCopilot } from "@/lib/copilot";
+import { OpenAI } from "openai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -50,11 +50,43 @@ export async function POST(request: Request) {
       }
     }
     if (!reply) {
-      // Pull a small slice of page content to use as extra context
+      // Obtener contexto de empleos y página
+      const jobs = await prisma.job.findMany({ take: 100 });
+  const jobsContext = jobs.map((j: { title: string; company?: string; location?: string; description?: string }) => `- ${j.title} en ${j.company || "Sin empresa"} (${j.location || "Sin ubicación"}): ${j.description || "Sin descripción"}`).join("\n");
       const page = await prisma.pageContent.findFirst({ where: { source: 'magneto365' }, orderBy: { createdAt: 'desc' } });
-      const ctxSnippet = page ? page.content.slice(0, 1500) : undefined;
-      const prompt = ctxSnippet ? `${ctxSnippet}\n\nUsuario: ${text}` : text;
-      reply = await askCopilot(prompt, job ? { jobTitle: job.title, company: job.company ?? undefined, location: job.location ?? undefined } : undefined);
+      const ctxSnippet = page ? page.content.slice(0, 1500) : "";
+      const prompt = `Contexto de Magneto365:\n${ctxSnippet}\n\nEmpleos disponibles:\n${jobsContext}\n\nUsuario: ${text}`;
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' });
+      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+      try {
+        const completion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: "Eres el asistente virtual de Magneto Empleo. Responde usando el contexto de la plataforma y los empleos disponibles." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 300
+        });
+        reply = completion.choices[0]?.message?.content || "No tengo respuesta en este momento.";
+      } catch (err: any) {
+        const code = err?.code || err?.status;
+        let assistantFallback = "";
+        if (code === 429 || err?.error?.type === "insufficient_quota") {
+          assistantFallback = "He alcanzado el límite de uso de la IA por ahora. Intenta de nuevo en unos minutos.";
+        } else if (code === 401 || err?.error?.code === "invalid_api_key") {
+          assistantFallback = "No pude autenticarme con el servicio de IA. Por favor, avisa al administrador.";
+        } else {
+          assistantFallback = "Ocurrió un error al generar la respuesta. Intenta de nuevo más tarde.";
+        }
+        // Persistir respuesta fallback y devolverla sin 500
+        await prisma.chatMessage.create({
+          data: { threadId: thread.id, sender: "bot", text: assistantFallback },
+        });
+        return NextResponse.json({ threadId: thread.id, messages: [userMsg, { id: "fallback", threadId: thread.id, sender: "bot", text: assistantFallback, createdAt: new Date() }] });
+      }
+      
+      if (!reply) reply = await generateBotReply(text, jobId);
       if (!reply) reply = await generateBotReply(text, jobId);
     }
 

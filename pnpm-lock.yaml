@@ -143,6 +143,9 @@ importers:
       next-themes:
         specifier: latest
         version: 0.4.6(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
+      openai:
+        specifier: ^5.20.3
+        version: 5.20.3(zod@3.25.67)
       prisma:
         specifier: ^6.16.1
         version: 6.16.1(typescript@5.0.2)
@@ -2130,6 +2133,18 @@ packages:
   oidc-token-hash@5.1.1:
     resolution: {integrity: sha512-D7EmwxJV6DsEB6vOFLrBM2OzsVgQzgPWyHlV2OOAVj772n+WTXpudC9e9u5BVKQnYwaD30Ivhi9b+4UeBcGu9g==}
     engines: {node: ^10.13.0 || >=12.0.0}
+
+  openai@5.20.3:
+    resolution: {integrity: sha512-8V0KgAcPFppDIP8uMBOkhRrhDBuxNQYQxb9IovP4NN4VyaYGISAzYexyYYuAwVul2HB75Wpib0xDboYJqRMNow==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.23.8
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   openid-client@5.7.1:
     resolution: {integrity: sha512-jDBPgSVfTnkIh71Hg9pRvtJc6wTwqjRkN88+gCFtYWrlP4Yx2Dsrow8uPi3qLr/aeymPF3o2+dS+wOpglK04ew==}
@@ -4242,6 +4257,10 @@ snapshots:
   ohash@2.0.11: {}
 
   oidc-token-hash@5.1.1: {}
+
+  openai@5.20.3(zod@3.25.67):
+    optionalDependencies:
+      zod: 3.25.67
 
   openid-client@5.7.1:
     dependencies:

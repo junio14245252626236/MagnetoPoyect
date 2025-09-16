@@ -16,6 +16,7 @@ interface AuthModalProps {
   onLogin?: () => void // Added callback for successful login
 }
 
+
 export default function AuthModal({ isOpen, onClose, initialMode = "login", onLogin }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(initialMode)
   const [showPassword, setShowPassword] = useState(false)
