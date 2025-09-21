@@ -7,11 +7,19 @@ export async function GET(request: Request) {
   if (!company) return NextResponse.json({ error: 'company is required' }, { status: 400 });
 
   const stats = await prisma.companyStats.findUnique({ where: { company } });
-  const feedbacks = await prisma.chatMessage.findMany({ where: { feedback: true, thread: { job: { company } } } });
-  const totalOpiniones = feedbacks.length;
-  const ratings: number[] = feedbacks
-    .map((f: { rating: number | null }) => f.rating as number | null)
-    .filter((r: number | null): r is number => typeof r === 'number');
+  
+  // Get all feedback for the company (both with company field and legacy data)
+  const feedbacks = await prisma.$queryRaw`
+    SELECT rating FROM ChatMessage 
+    WHERE feedback = 1 AND (company = ${company} OR company IS NULL)
+  `;
+  
+  const totalOpiniones = Array.isArray(feedbacks) ? feedbacks.length : 0;
+  const ratings: number[] = Array.isArray(feedbacks) 
+    ? feedbacks
+        .map((f: any) => f.rating)
+        .filter((r: any): r is number => typeof r === 'number' && r > 0)
+    : [];
   const ratingPromedio = ratings.length ? Number((ratings.reduce((a:number,b:number)=>a+b,0) / ratings.length).toFixed(1)) : 0;
 
   return NextResponse.json({

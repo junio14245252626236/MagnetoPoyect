@@ -10,11 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { Star, Users, MessageSquare, Eye, ArrowLeft, Building, Mail, Lock } from "lucide-react"
 import Link from "next/link"
 import { useSession, signIn, signOut } from "next-auth/react"
+import AuthModal from "@/components/auth-modal"
 
 export default function EmpresasPage() {
   const { data: session } = useSession()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loginData, setLoginData] = useState({ email: "", password: "" })
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "register">("register")
 
   // When session changes, set logged state
   useEffect(() => {
@@ -25,13 +28,36 @@ export default function EmpresasPage() {
     }
   }, [session])
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Escuchar evento global para abrir modal de auth
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      setAuthMode(e.detail?.mode === "register" ? "register" : "login")
+      setAuthModalOpen(true)
+    }
+    window.addEventListener("open-auth-modal", handler as EventListener)
+    return () => window.removeEventListener("open-auth-modal", handler as EventListener)
+  }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulamos login exitoso
-    setIsLoggedIn(true)
+    try {
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: loginData.email,
+        password: loginData.password,
+      })
+      if (result?.error) {
+        alert("Credenciales inválidas")
+      } else {
+        setIsLoggedIn(true)
+      }
+    } catch (error) {
+      alert("Error al iniciar sesión")
+    }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
     setIsLoggedIn(false)
     setLoginData({ email: "", password: "" })
   }
@@ -133,9 +159,15 @@ export default function EmpresasPage() {
                 <div className="mt-6 text-center">
                   <p className="text-sm text-gray-600">
                     ¿No tienes cuenta empresarial?{" "}
-                    <a href="#" className="text-blue-600 hover:underline">
+                    <button 
+                      onClick={() => {
+                        // Disparar evento para abrir modal de registro desde el componente padre
+                        window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { mode: 'register' } }))
+                      }}
+                      className="text-blue-600 hover:underline"
+                    >
                       Regístrate aquí
-                    </a>
+                    </button>
                   </p>
                 </div>
               </CardContent>
@@ -283,6 +315,14 @@ export default function EmpresasPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de autenticación */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authMode}
+        onLogin={() => setIsLoggedIn(true)}
+      />
     </div>
   )
 }

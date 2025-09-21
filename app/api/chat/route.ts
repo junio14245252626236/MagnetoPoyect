@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
     const userId = (session as any)?.user?.id as string | undefined;
 
-  const { text, threadId, jobId, rating } = await request.json();
+  const { text, threadId, jobId, rating, company } = await request.json();
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
@@ -22,14 +22,26 @@ export async function POST(request: Request) {
       thread = await prisma.chatThread.findUnique({ where: { id: threadId } });
     }
     if (!thread) {
-      thread = await prisma.chatThread.create({ data: { userId, jobId, title: undefined } });
+      // Create thread without user relation to avoid foreign key issues
+      thread = await prisma.chatThread.create({ 
+        data: { 
+          title: "Chat Session"
+        } 
+      });
     }
 
-    // Detect feedback/opinion (simple heuristic: contains "opino", "me parece", "no me gustó", "me gustó", "sugerencia")
+    // Detect feedback/opinion (simple heuristic: contains "opino", "me parece", "no me gustó", "me gustó", "sugerencia", OR has rating)
     const feedbackKeywords = ["opino", "me parece", "no me gustó", "me gustó", "sugerencia", "recomiendo", "no recomiendo"];
-    const isFeedback = feedbackKeywords.some(k => text.toLowerCase().includes(k));
+    const isFeedback = feedbackKeywords.some(k => text.toLowerCase().includes(k)) || rating > 0;
     const userMsg = await prisma.chatMessage.create({
-      data: { threadId: thread.id, sender: "user", text, feedback: isFeedback, rating: isFeedback && rating ? rating : undefined },
+      data: { 
+        threadId: thread.id, 
+        sender: "user", 
+        text, 
+        feedback: isFeedback, 
+        rating: rating > 0 ? rating : undefined,
+        ...(isFeedback && company ? { company } : {})
+      },
     });
 
     // TODO: Replace with real Copilot API call
@@ -52,7 +64,7 @@ export async function POST(request: Request) {
     if (!reply) {
       // Obtener contexto de empleos y página
       const jobs = await prisma.job.findMany({ take: 100 });
-  const jobsContext = jobs.map((j: { title: string; company?: string; location?: string; description?: string }) => `- ${j.title} en ${j.company || "Sin empresa"} (${j.location || "Sin ubicación"}): ${j.description || "Sin descripción"}`).join("\n");
+  const jobsContext = jobs.map((j: { title: string; company: string; location: string | null; description: string }) => `- ${j.title} en ${j.company || "Sin empresa"} (${j.location || "Sin ubicación"}): ${j.description || "Sin descripción"}`).join("\n");
       const page = await prisma.pageContent.findFirst({ where: { source: 'magneto365' }, orderBy: { createdAt: 'desc' } });
       const ctxSnippet = page ? page.content.slice(0, 1500) : "";
       const prompt = `Contexto de Magneto365:\n${ctxSnippet}\n\nEmpleos disponibles:\n${jobsContext}\n\nUsuario: ${text}`;

@@ -65,7 +65,12 @@ export default function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: sendingText, threadId, rating: rating > 0 ? rating : undefined }),
+        body: JSON.stringify({ 
+          text: sendingText, 
+          threadId, 
+          rating: rating > 0 ? rating : undefined,
+          company: "EAFIT" // Por ahora usando EAFIT como empresa default
+        }),
       });
       if (!res.ok) throw new Error("Error de chat");
       const data = await res.json();
