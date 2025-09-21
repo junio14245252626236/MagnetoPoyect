@@ -5,6 +5,9 @@
 **Institución:** Universidad EAFIT  
 **Fecha:** Septiembre 2025  
 
+**Repositorio GitHub:** junio14245252626236  
+**Deploy Account:** acevedomagally1@gmail.com  
+
 ---
 
 ## Descripción del Proyecto
